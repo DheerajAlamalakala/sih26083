@@ -1,0 +1,42 @@
+{
+  "model_version": "baseline_poisson_v1_2",
+  "synthetic_generation_version": "v1_1",
+  "trained_at_utc": "2026-09-26T08:44:41.206411+00:00",
+  "n_train": 6,
+  "n_val": 2,
+  "n_test": 2,
+  "n_labeled_total": 10,
+  "warning": "Sample size is far too small for a real skill estimate \u2014 pipeline sanity check only.",
+  "calibration": {
+    "daily_mortality": 0.496174724658576,
+    "daily_hospitalizations": 1.5433991045270616
+  },
+  "val_metrics": [
+    {
+      "target": "daily_mortality",
+      "mean_poisson_deviance": 1.8872005628311546,
+      "mae": 0.9436088271202223,
+      "n": 2
+    },
+    {
+      "target": "daily_hospitalizations",
+      "mean_poisson_deviance": 2.7917804440288534,
+      "mae": 1.3959053700457793,
+      "n": 2
+    }
+  ],
+  "test_metrics": [
+    {
+      "target": "daily_mortality",
+      "mean_poisson_deviance": 2977.6261653528773,
+      "mae": 1488.8130985777773,
+      "n": 2
+    },
+    {
+      "target": "daily_hospitalizations",
+      "mean_poisson_deviance": 0.9731067143751932,
+      "mae": 1.0571577026759436,
+      "n": 2
+    }
+  ]
+}

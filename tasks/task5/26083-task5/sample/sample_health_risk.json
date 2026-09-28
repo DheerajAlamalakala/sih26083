@@ -1,0 +1,13 @@
+{
+    "ward_id": "WARD_001",
+    "valid_time_utc": "2026-09-23T12:00:00Z",
+    "forecast_day": 1,
+    "thermal_stress_0_100": 78,
+    "vulnerability_0_100": 65,
+    "mortality_risk_0_100": 72,
+    "hospitalization_risk_0_100": 68,
+    "is_synthetic": true,
+    "source_type": "synthetic_test",
+    "model_version": "test_1.0",
+    "quality_flag": "VALID"
+}

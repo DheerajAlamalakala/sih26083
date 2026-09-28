@@ -1,0 +1,63 @@
+{
+    "rule_version": "1.1",
+    "threshold_type": "project_defined_prototype",
+    "alert_levels": {
+        "LOW": {
+            "minimum_risk": 0,
+            "maximum_risk": 30,
+            "advisory_id": "ADV_LOW_01",
+            "advisory_text": {
+                "en": "Heat conditions are currently at a lower risk level. Continue monitoring local conditions and follow routine heat-safety guidance."
+            },
+            "municipal_actions": [
+                "Monitor local heat conditions",
+                "Maintain readiness of cooling facilities"
+            ],
+            "notification_required": false
+        },
+        "MODERATE": {
+            "minimum_risk": 30,
+            "maximum_risk": 60,
+            "advisory_id": "ADV_MODERATE_01",
+            "advisory_text": {
+                "en": "Heat conditions are at a moderate risk level. Vulnerable groups should limit prolonged outdoor exposure and stay hydrated; local authorities should begin preparing cooling resources."
+            },
+            "municipal_actions": [
+                "Prepare cooling centres",
+                "Increase healthcare preparedness",
+                "Monitor power demand"
+            ],
+            "notification_required": true
+        },
+        "HIGH": {
+            "minimum_risk": 60,
+            "maximum_risk": 80,
+            "advisory_id": "ADV_HIGH_01",
+            "advisory_text": {
+                "en": "Heat conditions are at a high risk level. Avoid outdoor activity during peak hours, check on elderly and vulnerable residents, and expect municipal cooling centres and health services to be activated."
+            },
+            "municipal_actions": [
+                "Prepare or open cooling centres",
+                "Increase healthcare preparedness",
+                "Prepare for increased power demand",
+                "Consider shifting outdoor work hours"
+            ],
+            "notification_required": true
+        },
+        "CRITICAL": {
+            "minimum_risk": 80,
+            "maximum_risk": 100,
+            "advisory_id": "ADV_CRITICAL_01",
+            "advisory_text": {
+                "en": "Heat conditions are at a critical, life-threatening level. Avoid all non-essential outdoor activity, seek cooling centres immediately, and follow emergency guidance from local authorities."
+            },
+            "municipal_actions": [
+                "Open or activate cooling centres",
+                "Strengthen healthcare preparedness",
+                "Prepare for elevated power demand",
+                "Shift outdoor work hours where appropriate"
+            ],
+            "notification_required": true
+        }
+    }
+}

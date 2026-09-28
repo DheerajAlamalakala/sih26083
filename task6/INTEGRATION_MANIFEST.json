@@ -1,0 +1,25 @@
+{
+  "project": "SIH 26083",
+  "task6_status": "implemented",
+  "authoritative_spec": "Master Playbook supplied by user",
+  "datasets_immutable": true,
+  "task6_consumes": [
+    "tasks/task1/26083-task1/data/raw/weather/demo_fixture_v1.json",
+    "tasks/task3/26083-feature-task3-gis-demographics/data/processed/vulnerability/ward_vulnerability.csv",
+    "tasks/task3/26083-feature-task3-gis-demographics/data/processed/gis/hyderabad_wards.geojson",
+    "tasks/task4/task4/sample/stage2_health_risk_output.csv",
+    "tasks/task5/26083-task5/src/alerts/action_engine.py",
+    "tasks/task5/26083-task5/src/alerts/advisories.json"
+  ],
+  "api_paths": [
+    "GET /api/v1/forecast",
+    "GET /api/v1/wards",
+    "GET /api/v1/wards/risk?date=YYYY-MM-DD",
+    "GET /api/v1/wards/{ward_id}",
+    "GET /api/v1/alerts",
+    "POST /api/v1/actions/trigger",
+    "POST /api/v1/notifications/send"
+  ],
+  "frontend": "React + React-Leaflet",
+  "notification_mode": "simulated"
+}
