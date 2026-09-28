@@ -34,7 +34,7 @@
 12. [Honest Limitations](#-honest-limitations)
 13. [Roadmap](#-roadmap)
 14. [Tech Stack](#-tech-stack)
-15. [Team](#-team)
+
 
 ---
 
@@ -340,22 +340,5 @@ We'd rather you hear these from us:
 | **Alerts** | Twilio SMS |
 | **Testing** | pytest |
 
----
-
-## 👥 Team
-
-| Name | Role |
-|---|---|
-| *Your Name* | *e.g. Team Lead · Backend* |
-| *Teammate* | *e.g. Data Science* |
-| *Teammate* | *e.g. Frontend* |
-
-**Team name:** *your team* · **Institution:** *your college* · **Problem Statement ID:** 26083
-
----
-
-<div align="center">
-
-*Built for the Smart India Hackathon. Heat kills quietly. RAKSHA makes the warning loud, local and actionable.*
 
 </div>
