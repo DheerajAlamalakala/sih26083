@@ -1,195 +1,361 @@
-# RAKSHA — Extreme Heatwave Early Warning System (SIH 26083)
+<div align="center">
 
-A ward-level heatwave early-warning prototype for Hyderabad (GHMC, 155 wards). It turns weather data into a human thermal-stress index, combines that with ward vulnerability to estimate health risk, converts the result into alert levels and municipal actions, and shows everything on a live dashboard with SMS notifications.
+# 🛡️ RAKSHA
+### Extreme Heatwave Early Warning & Human Thermal Stress Index
 
-> **Prototype status:** the health-risk stage is trained on **synthetic** data and the alert thresholds are **project-defined**, not official government thresholds. See [Data and scientific caveats](#data-and-scientific-caveats) before presenting any number as real.
+**Smart India Hackathon · Problem Statement 26083**
 
----
+*From weather forecast to ward-level action, before the heat becomes a health emergency.*
 
-## How it works
+![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-backend-009688?logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
+![Leaflet](https://img.shields.io/badge/Leaflet-ward%20map-199900?logo=leaflet&logoColor=white)
+![Twilio](https://img.shields.io/badge/Twilio-SMS%20alerts-F22F46?logo=twilio&logoColor=white)
+![Status](https://img.shields.io/badge/status-working%20prototype-orange)
 
-```
-Task 1  Weather ──► Task 2  Thermal stress ──┐
-                                             ├──► Task 4  Health risk ──► Task 5  Actions ──► Task 6  Dashboard + SMS
-Task 3  GIS + vulnerability ─────────────────┘
-```
-
-| Task | Folder | What it does |
-|---|---|---|
-| 1 | `tasks/task1/26083-task1` | Weather client with fallback chain: cache → Open-Meteo → NASA POWER → versioned demo fixture. Emits a canonical `WeatherRecord` with a `quality_flag`; never silently substitutes a 24h mean. |
-| 2 | `tasks/task2/26083-feature-task2-thermal-stress` | Deterministic (no ML) thermal stress: WBGT approximation, NWS heat index, UTCI-style proxy, normalised to a 0–100 `thermal_stress_0_100` score with risk bands. Output: `ThermalStressRecord`. |
-| 3 | `tasks/task3/26083-feature-task3-gis-demographics` | Ward boundaries (TGRAC official layer, DataMeet fallback), Census 2011 baseline, and a 0–100 vulnerability index per ward. |
-| 4 | `tasks/task4/task4` | Poisson baseline models for mortality and hospitalization risk, Day +1 to +5. Output: `HealthRiskRecord`. |
-| 5 | `tasks/task5/26083-task5` | Action engine: combines health risk and vulnerability into an alert level, advisory text and municipal actions. Output: `WardActionRecord`. |
-| 6 | `task6` | FastAPI backend + React/Leaflet dashboard + Twilio SMS. Integrates Tasks 1–5 without recalculating any science. |
-
-### Key formulas
-
-- **Thermal stress (Task 2):** WBGT ≈ 0.567·Ta + 0.393·e + 3.94 (plus a solar adjustment above 400 W/m²), rescaled so 18 °C → 0 and 40 °C → 100.
-- **Vulnerability (Task 3):** 0.35 × outdoor-worker exposure + 0.30 × elderly exposure + 0.25 × slum density + 0.10 × canopy deficit.
-- **Action risk (Task 5):** `0.70 × max(mortality, hospitalization) + 0.30 × vulnerability`, plus 5 points if heat persists ≥ 12 hours.
-
-### Alert levels
-
-| Level | Action risk | Notification |
-|---|---|---|
-| LOW | 0–30 | No |
-| MODERATE | 31–60 | Yes |
-| HIGH | 61–80 | Yes |
-| CRITICAL | 81–100 | Yes |
-
-Full action lists and advisory wording: `tasks/task5/26083-task5/docs/alerts/action_matrix.md`.
+</div>
 
 ---
 
-## Repository layout
+## 📌 Table of Contents
+
+1. [The Problem](#-the-problem)
+2. [Our Solution](#-our-solution)
+3. [What Makes RAKSHA Different](#-what-makes-raksha-different)
+4. [System Architecture](#-system-architecture)
+5. [The Science, Simply Explained](#-the-science-simply-explained)
+6. [Dashboard Features](#-dashboard-features)
+7. [Quick Start](#-quick-start)
+8. [API Reference](#-api-reference)
+9. [SMS Alerts (Twilio)](#-sms-alerts-twilio)
+10. [Project Structure](#-project-structure)
+11. [Testing](#-testing)
+12. [Honest Limitations](#-honest-limitations)
+13. [Roadmap](#-roadmap)
+14. [Tech Stack](#-tech-stack)
+15. [Team](#-team)
+
+---
+
+## 🔥 The Problem
+
+Heatwaves are among India's deadliest and most under-managed climate hazards. Today's warnings share three weaknesses:
+
+- **Too coarse.** Alerts are issued for whole districts or cities, but heat risk changes street by street. A dense informal settlement with little tree cover faces very different danger from a leafy neighbourhood a few kilometres away.
+- **Temperature-only.** Air temperature alone misses humidity, sunshine and wind, which decide how hot the human body actually *feels* and how quickly it overheats.
+- **Not actionable.** A number like "44 °C" doesn't tell a ward officer *what to do*: which cooling centres to open, where to prepare hospitals, whom to notify.
+
+## 💡 Our Solution
+
+**RAKSHA** (*"protection"* in Hindi) is an end-to-end early-warning system that answers three questions for every ward in Hyderabad (155 GHMC wards):
+
+| | Question | How RAKSHA answers |
+|---|---|---|
+| **1** | *How dangerous is the weather to the human body?* | A **Human Thermal Stress Index** (0–100) built from temperature, humidity, solar radiation and wind |
+| **2** | *Who is most at risk, and how badly?* | A **ward vulnerability index** using elderly population, outdoor workers, informal settlements and green cover, combined with the thermal index into a **5-day health-risk forecast** |
+| **3** | *What should the city do about it?* | An **action engine** that assigns an alert level (LOW → CRITICAL), advisory text and municipal actions, delivered on a live map and by SMS |
+
+---
+
+## ✨ What Makes RAKSHA Different
+
+- **Hyper-local, not city-wide.** Every score, alert and action is computed per ward and shown on an interactive map.
+- **Human-centred physics.** Uses WBGT, Heat Index and a UTCI-style proxy instead of raw temperature. This stage is fully deterministic: no black-box ML, every formula documented.
+- **Vulnerability-aware.** Two wards with identical weather get different alerts if one houses more elderly residents and outdoor workers.
+- **Never fails silently.** The weather layer falls back from cache → Open-Meteo → NASA POWER → a versioned demo fixture, and every record carries a `quality_flag` so downstream users always know how much to trust it. Missing data is never quietly replaced with an average.
+- **From insight to action.** Alerts map directly to municipal actions (open cooling centres, shift outdoor work hours, increase hospital readiness) and to SMS for three stakeholder roles.
+- **Clean, contract-driven pipeline.** Each stage hands the next a versioned, typed record (`WeatherRecord` → `ThermalStressRecord` → `HealthRiskRecord` → `WardActionRecord`), so any stage can be upgraded without breaking the rest.
+- **Radically honest about data.** Synthetic data is tagged `is_synthetic=true` end to end, alert thresholds are labelled as prototype rules, and the dashboard reports plainly when real SMS is not configured.
+
+---
+
+## 🏗️ System Architecture
+
+```mermaid
+flowchart LR
+    subgraph T1["Task 1 · Weather"]
+        A1[Cache] --> A2[Open-Meteo]
+        A2 --> A3[NASA POWER]
+        A3 --> A4[Demo fixture]
+    end
+    T1 -- WeatherRecord --> T2
+
+    subgraph T2["Task 2 · Thermal Stress"]
+        B1["WBGT · Heat Index · UTCI proxy"]
+        B2["Thermal stress 0–100"]
+        B1 --> B2
+    end
+
+    subgraph T3["Task 3 · GIS + Vulnerability"]
+        C1["155 GHMC ward boundaries"]
+        C2["Census baseline"]
+        C3["Vulnerability 0–100"]
+        C1 --> C3
+        C2 --> C3
+    end
+
+    T2 -- ThermalStressRecord --> T4
+    T3 -- vulnerability --> T4
+
+    subgraph T4["Task 4 · Health Risk"]
+        D1["Mortality risk 0–100"]
+        D2["Hospitalization risk 0–100"]
+    end
+
+    T4 -- HealthRiskRecord --> T5
+
+    subgraph T5["Task 5 · Action Engine"]
+        E1["Alert level"]
+        E2["Advisory + municipal actions"]
+        E1 --> E2
+    end
+
+    T5 -- WardActionRecord --> T6
+
+    subgraph T6["Task 6 · Delivery"]
+        F1["FastAPI"]
+        F2["React + Leaflet dashboard"]
+        F3["Twilio SMS"]
+        F1 --> F2
+        F1 --> F3
+    end
+```
+
+| Stage | Folder | Responsibility |
+|---|---|---|
+| **1 · Weather** | `tasks/task1/26083-task1` | Resilient, normalised weather ingestion with quality flags |
+| **2 · Thermal stress** | `tasks/task2/26083-feature-task2-thermal-stress` | Deterministic WBGT / Heat Index / UTCI proxy → 0–100 score and risk band |
+| **3 · GIS & vulnerability** | `tasks/task3/26083-feature-task3-gis-demographics` | Ward boundaries (TGRAC official, DataMeet fallback), Census baseline, vulnerability index |
+| **4 · Health risk** | `tasks/task4/task4` | Poisson models for mortality and hospitalization, Day +1 to +5, with calibration and drivers |
+| **5 · Actions** | `tasks/task5/26083-task5` | Alert level, advisory text, municipal actions, notification status |
+| **6 · Delivery** | `task6` | REST API, live dashboard, SMS |
+
+---
+
+## 🔬 The Science, Simply Explained
+
+### 1. Human Thermal Stress Index (Task 2)
+The body cools by sweating, and humid air stops sweat from evaporating. So RAKSHA estimates **Wet Bulb Globe Temperature (WBGT)**, the standard measure of occupational heat stress:
+
+```
+WBGT ≈ 0.567·T + 0.393·e + 3.94        (e = vapour pressure from T and humidity)
++ up to 2 °C solar correction when radiation > 400 W/m²
+```
+
+It is rescaled so **18 °C WBGT → 0** and **40 °C WBGT → 100**, then banded:
+
+| Score | Band |
+|---|---|
+| 0–40 | Low |
+| 40–60 | Moderate |
+| 60–80 | High |
+| 80–100 | Extreme |
+
+The NWS **Heat Index** (Rothfusz regression) and a wind-adjusted **UTCI-style proxy** are computed alongside for reference.
+
+### 2. Ward Vulnerability Index (Task 3)
+```
+Vulnerability = 0.35 × outdoor-worker exposure
+              + 0.30 × elderly exposure
+              + 0.25 × informal-settlement density
+              + 0.10 × tree-canopy deficit
+```
+Each component is normalised to 0–100. Wards also receive tags such as `CRITICAL_COMBINED_HEAT_VULNERABILITY` or `SENIOR_POPULATION_HEAT_RISK`.
+
+### 3. Health Risk (Task 4)
+Poisson regression models predict daily mortality and hospitalization risk from thermal stress (mean and max), vulnerability, heat persistence and seasonality. Calibration is computed **once at training time** and saved, so a ward-day always scores the same regardless of what else is in the batch. Each prediction lists its top drivers.
+
+### 4. Action Risk and Alert Levels (Task 5)
+```
+action_risk = 0.70 × max(mortality, hospitalization)
+            + 0.30 × vulnerability
+            + 5   (if heat persists ≥ 12 hours)
+```
+
+| Alert | Action risk | Example municipal actions | Notify? |
+|---|---|---|---|
+| 🟢 **LOW** | 0–30 | Monitor conditions, keep cooling facilities ready | No |
+| 🟡 **MODERATE** | 31–60 | Prepare cooling centres, raise healthcare readiness, monitor power demand | Yes |
+| 🟠 **HIGH** | 61–80 | Open cooling centres, prepare for power demand, consider shifting outdoor work hours | Yes |
+| 🔴 **CRITICAL** | 81–100 | Activate cooling centres, strengthen healthcare, shift outdoor work hours | Yes |
+
+Full matrix: `tasks/task5/26083-task5/docs/alerts/action_matrix.md`.
+
+---
+
+## 🖥️ Dashboard Features
+
+> 📸 *Add screenshots here: `docs/screenshots/dashboard.png`, `ward-detail.png`, `sms-alert.png`.*
+
+- **Ward alert map:** all 155 wards colour-coded by alert level on OpenStreetMap. Click any ward to update every panel.
+- **Three-stage pipeline view:** *Observe → Assess → Respond*. Expand each stage to inspect the exact values behind a decision.
+- **Live weather:** current weather and forecast for the selected ward's location via Open-Meteo.
+- **5-day outlook:** weather alongside the health-risk forecast, with a Day 1–5 selector.
+- **Alert filtering:** filter the response centre by LOW / MODERATE / HIGH / CRITICAL.
+- **Municipal action cards:** advisory text and recommended actions for each ward.
+- **One-click notifications:** send to the Municipal/Ward Officer, Disaster Management Control Room, or Health Coordination Officer, simulated or via real SMS.
+
+---
+
+## 🚀 Quick Start
+
+**Requirements:** Python 3.10+ · Node.js 18+ · internet access (map tiles and live weather)
+
+```bash
+# 1 · Backend
+cd task6/backend
+python -m pip install -r requirements.txt
+uvicorn app.main:app --reload            # → http://127.0.0.1:8000/docs
+```
+
+```bash
+# 2 · Dashboard (new terminal)
+cd task6/frontend
+npm install
+npm run dev                              # → open the URL Vite prints
+```
+
+The dashboard connects to `http://127.0.0.1:8000/api/v1` by default (override with `VITE_API_BASE`). **No API keys are needed for the demo.**
+
+> **Windows:** `run_backend.bat` / `run_frontend.bat` do the same. They resolve `task6\...` relative to their own location, so place them in the folder that *contains* `task6/`.
+> **Layout matters:** the backend imports the Task 5 engine from `../tasks/task5/...`, so keep `task6/` and `tasks/` side by side.
+
+### 🎬 Suggested 5-minute demo
+
+1. Open the map and point out the alert distribution across wards.
+2. Click a high-vulnerability ward (e.g. `GHMC_W002`) and walk through Stage 1 → 2 → 3.
+3. Show the Day 1–5 outlook and the driver behind the risk.
+4. Expand the municipal action card.
+5. Send a notification to a stakeholder role.
+6. Open `/docs` to show the API is clean and reusable.
+
+---
+
+## 📡 API Reference
+
+Base path: `/api/v1`, with interactive docs at `/docs`.
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/health` | Service status and dataset sizes |
+| GET | `/demo/summary` | Ward and record counts, alert-level distribution |
+| GET | `/forecast?ward_id=&forecast_day=` | Health-risk records for Day 1–5 |
+| GET | `/wards` | All ward boundaries as GeoJSON |
+| GET | `/wards/risk?date=YYYY-MM-DD` | Vulnerability joined with latest health risk |
+| GET | `/wards/{ward_id}` | One ward: vulnerability, forecast and actions |
+| GET | `/alerts?alert_level=&ward_id=` | Action records from the Task 5 engine |
+| POST | `/actions/trigger` | Fetch the action record for `{ward_id, forecast_day}` |
+| POST | `/notifications/send` | Send a notification (`simulated` or `sms`) |
+| GET | `/notifications/config` | Twilio status and recipient roles |
+
+```bash
+curl http://127.0.0.1:8000/api/v1/alerts?alert_level=CRITICAL
+
+curl -X POST http://127.0.0.1:8000/api/v1/notifications/send \
+  -H "Content-Type: application/json" \
+  -d '{"ward_id":"GHMC_W002","channel":"simulated","recipient_role":"disaster_management"}'
+```
+
+---
+
+## 📲 SMS Alerts (Twilio)
+
+By default notifications are **simulated**: nothing is sent, and the log entry is marked `demo_only`. To send real SMS:
+
+1. Copy `task6/backend/.env.example` and fill in `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` and `TWILIO_FROM_NUMBER`.
+2. Add E.164 phone numbers for `RAKSHA_MUNICIPAL_WARD_OFFICER_PHONE`, `RAKSHA_DISASTER_MANAGEMENT_PHONE` and `RAKSHA_HEALTH_COORDINATION_PHONE`.
+3. Export these in the shell that runs the backend. The app reads environment variables and does not load `.env` on its own.
+4. **Twilio trial accounts** only allow predefined templates, so `RAKSHA_TWILIO_TRIAL_MODE=true` (default) sends the `sms_internal_alerts` template while the full advisory stays in the dashboard log. Set it to `false` after upgrading to send the custom message.
+
+If Twilio isn't configured the API returns `503` and the UI says so. It never pretends a message was sent. 🔒 **Never commit credentials.**
+
+---
+
+## 📁 Project Structure
 
 ```
 .
 ├── tasks/
-│   ├── task1/26083-task1/                        # weather ingestion
-│   ├── task2/26083-feature-task2-thermal-stress/ # thermal stress engine
-│   ├── task3/26083-feature-task3-gis-demographics/
-│   ├── task4/task4/                              # health-risk models
-│   └── task5/26083-task5/                        # action engine
+│   ├── task1/26083-task1/                         # weather ingestion + fallback chain
+│   ├── task2/26083-feature-task2-thermal-stress/  # WBGT, heat index, thermal score
+│   ├── task3/26083-feature-task3-gis-demographics/# wards, census, vulnerability
+│   ├── task4/task4/                               # health-risk models, notebook, docs
+│   └── task5/26083-task5/                         # alert rules, advisories, action engine
 └── task6/
-    ├── backend/        # FastAPI app (app/main.py, app/data.py) + tests
-    ├── frontend/       # React + Vite + React-Leaflet dashboard
-    ├── demo_data/      # byte-for-byte copies of Task 1–5 artifacts (read-only inputs)
+    ├── backend/            # FastAPI app + tests
+    ├── frontend/           # React + Vite + Leaflet dashboard
+    ├── demo_data/          # read-only copies of Task 1–5 artifacts
     ├── INTEGRATION_MANIFEST.json
-    └── run_backend.bat / run_frontend.bat
+    └── run_backend.bat · run_frontend.bat
 ```
-
-The Task 6 backend imports the Task 5 action engine from `../tasks/task5/26083-task5/src`, so **keep `task6/` and `tasks/` side by side** as shown above.
 
 ---
 
-## Quick start (run the demo)
-
-**Requirements:** Python 3.10+, Node.js 18+.
-
-**1. Backend**
+## 🧪 Testing
 
 ```bash
-cd task6/backend
-python -m pip install -r requirements.txt
-uvicorn app.main:app --reload
+cd task6/backend && python -m pytest                        # API + SMS-template tests
+cd tasks/task4/task4 && PYTHONPATH=. python3 -m pytest -q   # health-risk pipeline (40 tests)
+cd tasks/task5/26083-task5 && python -m pytest              # action engine
 ```
 
-API docs: http://127.0.0.1:8000/docs
-
-**2. Dashboard** (second terminal)
-
-```bash
-cd task6/frontend
-npm install
-npm run dev
-```
-
-Open the URL Vite prints. The dashboard talks to `http://127.0.0.1:8000/api/v1` by default; override with `VITE_API_BASE`.
-
-**Windows shortcut:** `run_backend.bat` and `run_frontend.bat` install dependencies and start each service. They `cd` into `task6\backend` / `task6\frontend` relative to the script, so they work when placed in the folder that *contains* `task6/`, not inside `task6/` itself.
-
-### Suggested demo flow
-
-1. Start the backend, then the dashboard.
-2. Show the ward map and alert distribution.
-3. Click a ward to see its Day 1–5 health-risk records and vulnerability.
-4. Show the municipal actions generated by the Task 5 engine.
-5. Trigger a notification (simulated by default).
-6. Open `/docs` if an API walkthrough helps.
-
-No Twilio credentials are needed for demo mode. The map fetches OpenStreetMap tiles and the "live weather" panel calls Open-Meteo from the browser, so those parts need internet access.
+Each stage folder ships its own tests (weather client, thermal score, GIS, ward-ID mapping, calibration, prediction, alert rules). Only Task 4 and Task 6 include a `requirements.txt`.
 
 ---
 
-## API reference (`/api/v1`)
+## ⚠️ Honest Limitations
 
-| Method | Path | Description |
-|---|---|---|
-| GET | `/health` | Service status and dataset sizes |
-| GET | `/demo/summary` | Ward/record counts and alert-level distribution |
-| GET | `/forecast?ward_id=&forecast_day=` | Health-risk records (Day 1–5) |
-| GET | `/wards` | Ward boundaries as GeoJSON |
-| GET | `/wards/risk?date=YYYY-MM-DD` | Vulnerability joined with latest health risk per ward |
-| GET | `/wards/{ward_id}` | Ward vulnerability, forecast and actions |
-| GET | `/alerts?alert_level=&ward_id=` | Action records from the Task 5 engine |
-| POST | `/actions/trigger` | Look up the action record for `{ward_id, forecast_day}` |
-| POST | `/notifications/send` | Send or simulate a notification (`sms`, `whatsapp`, `simulated`) |
-| GET | `/notifications/config` | Twilio configuration status and recipient roles |
+We'd rather you hear these from us:
 
----
+- **Health outcomes are synthetic.** Real hospital and mortality data was not available, so Task 4 trains on generated counts (tagged `is_synthetic=true`). It demonstrates the pipeline; it is **not** clinically validated.
+- **Small demo sample.** The demo health-risk file covers a couple of wards over five days, so only a handful of the 155 wards show full health-risk records. All 155 have vulnerability scores and boundaries.
+- **`forecast_day` is a stand-in** for a true forecast horizon until a real multi-day feed is wired through.
+- **Alert thresholds are project-defined prototype rules**, not official government thresholds.
+- **Census 2011 baseline.** Demographics are historical and not presented as current population.
+- **Ward-ID mapping** between demo and real IDs (`HYD_W001 → GHMC_W001`) still needs confirmation.
+- **Known code issues:** `tasks/task1/.../scripts/fetch_weather.py` has a wrong import path (`src.data.weather_client`), and the backend's CORS is open for demo use.
 
-## SMS notifications (Twilio)
+## 🗺️ Roadmap
 
-Default behaviour is **simulated**: nothing leaves your machine, and the log entry is marked `demo_only`. Real SMS is opt-in.
-
-1. Copy `task6/backend/.env.example` to `.env` (git-ignored) and fill in:
-   - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`
-   - Recipient numbers in E.164 format for the three roles: `RAKSHA_MUNICIPAL_WARD_OFFICER_PHONE`, `RAKSHA_DISASTER_MANAGEMENT_PHONE`, `RAKSHA_HEALTH_COORDINATION_PHONE`
-2. Export those variables in the shell that runs the backend (the app reads the environment; it does not load `.env` itself unless your environment does).
-3. **Trial accounts:** Twilio trial SMS requires a predefined template, so `RAKSHA_TWILIO_TRIAL_MODE=true` (the default) sends the `sms_internal_alerts` template while the full RAKSHA advisory stays in the dashboard and notification log. After upgrading, set it to `false` to send the custom message body.
-
-If Twilio isn't configured, the API returns `503` and the UI says so rather than claiming a message was sent. WhatsApp is not implemented (`501`). **Never commit credentials.**
+- [ ] Run the full pipeline on all 155 wards over weeks of real weather data
+- [ ] Partner with a health department for real, legally obtained mortality and hospitalization data, then retrain
+- [ ] Adopt authoritative alert thresholds (e.g. IMD / NDMA guidance)
+- [ ] Real multi-day forecast feed replacing the historical stand-in
+- [ ] WhatsApp and multilingual (Telugu, Hindi, Urdu) citizen advisories
+- [ ] Add WBGT / UTCI and exposure features to the model once data supports them
+- [ ] Scale to other Indian cities (the ward-pipeline is city-agnostic)
+- [ ] Authentication, audit logging and locked-down CORS for production
 
 ---
 
-## Running the individual stages
+## 🧰 Tech Stack
 
-Each task folder is self-contained. From inside a task folder:
-
-```bash
-# Tasks 1, 2, 3, 5 (dependencies: pydantic, httpx, pytest, and geopandas/shapely-style GIS libs as imported)
-python -m pytest
-
-# Task 4 – train, predict, test
-cd tasks/task4/task4
-pip install -r requirements.txt
-export PYTHONPATH=.
-python3 -m src.health.train_models   # trains models, saves models/*.joblib + calibration
-python3 src/health/predict.py        # writes sample/stage2_health_risk_output.csv
-python3 -m pytest tests/ -q          # 40 tests
-```
-
-```bash
-# Task 5 – generate a sample action record
-cd tasks/task5/26083-task5
-python run_test.py                   # reads sample/sample_health_risk.json
-
-# Task 6 backend tests
-cd task6/backend && python -m pytest
-```
-
-Only Task 4 and Task 6 ship a `requirements.txt`; Tasks 1, 2, 3 and 5 don't, so install what their imports need.
+| Layer | Technologies |
+|---|---|
+| **Data & science** | Python, pandas, NumPy, scikit-learn (Poisson regression), Pydantic |
+| **Data sources** | Open-Meteo, NASA POWER, TGRAC GHMC ward layer, DataMeet, Census of India 2011 |
+| **Backend** | FastAPI, Uvicorn, httpx |
+| **Frontend** | React 18, Vite, Leaflet / React-Leaflet, OpenStreetMap |
+| **Alerts** | Twilio SMS |
+| **Testing** | pytest |
 
 ---
 
-## Data and scientific caveats
+## 👥 Team
 
-- **Health outcomes are synthetic.** Task 4 trains on Poisson-generated counts derived from real Stage 1 thermal stress and Task 3 vulnerability. Every row is tagged `is_synthetic=True`, `source_type=synthetic_demo`. The models demonstrate the pipeline only; they have no clinical or epidemiological validity.
-- **Tiny sample.** The current Task 4 labelled set is about 10 ward-days, far too small for a real skill estimate. The demo health-risk file has 12 rows (GHMC_W001 and GHMC_W002 for five days each, plus two `HYD_PAIR_*` test wards), so most of the 155 wards have vulnerability data but no health-risk records.
-- **`forecast_day` is a stand-in.** It indexes a historical window, not a true forecast horizon, and `forecast_issued_at_utc` is always null until Task 1 delivers real multi-day forecasts.
-- **Alert thresholds are prototype rules** (rule version 1.1), not official heat-health thresholds.
-- **Census 2011 baseline.** Demographics are historical and are not presented as 2026 population counts.
-- **Ward ID mapping is unconfirmed.** Task 4 bridges demo IDs (`HYD_W001`) to real IDs (`GHMC_W001`) with a guess that should be confirmed with the Task 2 owner.
-- **Data provenance.** Ward boundaries come from the TGRAC GHMC layer (`VERIFIED_OFFICIAL_TGRAC_LAYER`), with DataMeet as an offline fallback (`DATAMEET_COMMUNITY_FALLBACK_BOUNDARIES`). Details: `tasks/task3/.../docs/data/gis_sources.md`.
-- Deeper write-up and open items: `tasks/task4/task4/docs/science/health_risk_model.md`.
+| Name | Role |
+|---|---|
+| *Your Name* | *e.g. Team Lead · Backend* |
+| *Teammate* | *e.g. Data Science* |
+| *Teammate* | *e.g. Frontend* |
 
-## Known issues
+**Team name:** *your team* · **Institution:** *your college* · **Problem Statement ID:** 26083
 
-- `tasks/task1/26083-task1/scripts/fetch_weather.py` imports `src.data.weather_client`, but in that folder the module is `src/weather_client.py`, so the script fails as shipped until the import is corrected.
-- The `.bat` launchers assume they sit beside `task6/` (see Quick start).
-- The backend allows CORS from any origin; restrict it before any non-demo deployment.
-- The Task 1, 2, 3 and 5 `README.md` files are one-line stubs; this file is the main documentation.
+---
 
-## Before final submission
+<div align="center">
 
-1. Confirm the `HYD_W001 → GHMC_W001` ward mapping.
-2. Re-run Stage 1 across all 155 wards over weeks, not days, and retrain Task 4 (bump `MODEL_VERSION` first).
-3. Replace the historical-day stand-in with a real multi-day forecast feed.
-4. Swap in real, legally obtained health data if available, and set `source_type=real_public`.
-5. Consider adding WBGT/UTCI/heat-index and exposure features once there is enough data to support them.
+*Built for the Smart India Hackathon. Heat kills quietly. RAKSHA makes the warning loud, local and actionable.*
 
-## Tech stack
-
-Python · FastAPI · Pydantic · scikit-learn (Poisson regression) · pandas · Twilio · React 18 · Vite · Leaflet / React-Leaflet · Open-Meteo · NASA POWER · OpenStreetMap
+</div>
